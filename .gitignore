@@ -1,0 +1,19 @@
+# Frontend
+client/node_modules
+client/dist
+client/.env
+client/.env.*
+
+# Backend
+server/node_modules
+server/.env
+server/.env.*
+
+# System and editor files
+.DS_Store
+.vscode/
+.idea/
+*.log
+
+client/build/
+server/build/
