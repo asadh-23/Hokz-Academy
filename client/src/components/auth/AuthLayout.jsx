@@ -2,7 +2,7 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import GoogleAuth from "./GoogleAuth";
 
-export default function AuthLayout({ subtitle, children }) {
+export default function AuthLayout({ subtitle, role, children }) {
     const location = useLocation();
     const isRegister = location.pathname.includes("register");
     const isLogin = location.pathname.includes("login");
@@ -27,34 +27,40 @@ export default function AuthLayout({ subtitle, children }) {
                         </div>
                         <span className="font-bold text-lg text-gray-700">{import.meta.env.VITE_APP_NAME}</span>
                     </div>
-                    {/* Tabs fixed at top and centered with less height */}
-                    <div className="flex bg-gray-200 rounded-full p-1 mb-4 w-full max-w-xs mx-auto sticky top-0 z-20 shadow-inner">
-                        <Link
-                            to="/user/register"
-                            className={`flex-1 py-1.5 text-center rounded-full font-semibold text-sm transition-colors ${
-                                isRegister ? "bg-teal-400 text-white shadow" : "text-gray-600 hover:text-gray-800"
-                            }`}
-                        >
-                            Register
-                        </Link>
-                        <Link
-                            to="/user/login"
-                            className={`flex-1 py-1.5 text-center rounded-full font-semibold text-sm transition-colors ${
-                                isLogin ? "bg-teal-400 text-white shadow" : "text-gray-600 hover:text-gray-800"
-                            }`}
-                        >
-                            Login
-                        </Link>
-                    </div>
+
+                    {/* Tabs: Show only if role is NOT admin */}
+                    {role !== "admin" && (
+                        <div className="flex bg-gray-200 rounded-full p-1 mb-4 w-full max-w-xs mx-auto sticky top-0 z-20 shadow-inner">
+                            <Link
+                                to={`/${role}/register`}
+                                className={`flex-1 py-1.5 text-center rounded-full font-semibold text-sm transition-colors ${
+                                    isRegister ? "bg-teal-400 text-white shadow" : "text-gray-600 hover:text-gray-800"
+                                }`}
+                            >
+                                Register
+                            </Link>
+                            <Link
+                                to={`/${role}/login`}
+                                className={`flex-1 py-1.5 text-center rounded-full font-semibold text-sm transition-colors ${
+                                    isLogin ? "bg-teal-400 text-white shadow" : "text-gray-600 hover:text-gray-800"
+                                }`}
+                            >
+                                Login
+                            </Link>
+                        </div>
+                    )}
+
                     {/* Subtitle */}
                     <p className="text-gray-500 text-sm mb-8 text-center px-8">
                         Fill in the information below to {subtitle}
                     </p>
                 </div>
-                {/* Children form area - minimal change, always centered */}
+
+                {/* Children form area */}
+                {/* Children form area */}
                 <div className="w-full px-10 pb-8 flex-1 flex flex-col justify-start">
                     {children}
-                    <GoogleAuth />
+                    {role !== "admin" && <GoogleAuth role={role} />}
                 </div>
             </div>
         </div>

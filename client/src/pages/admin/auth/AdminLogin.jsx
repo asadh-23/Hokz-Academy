@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import AuthLayout from "../../../components/auth/AuthLayout";
 import { toast } from "sonner";
-import {publicAxios} from "../../../api/axios";
+import { publicAxios } from "../../../api/axios";
 import { Link, useNavigate } from "react-router-dom";
 
-export default function UserLogin() {
+export default function AdminLogin() {
     const [formData, setFormData] = useState({
         email: "",
         password: "",
@@ -25,15 +25,15 @@ export default function UserLogin() {
         }
 
         try {
-            const response = await publicAxios.post("/user/login", cleanData);
+            const response = await publicAxios.post("/admin/login", cleanData);
 
-            if (response.data.success) {
+            if (response.data?.success) {
                 toast.success(response.data.message || "Login successful");
                 navigate("/");
             }
         } catch (error) {
             console.log(error.response?.data?.message);
-            toast.error(error.response?.data?.message || "Login failed");
+            toast.error(error.response?.data?.message || "Admin Login failed");
         }
     };
 
@@ -42,8 +42,8 @@ export default function UserLogin() {
     };
 
     return (
-        <AuthLayout subtitle="Log In" role="user">
-            <h2 className="text-3xl font-bold mb-4 text-gray-900 drop-shadow-md">Login to your account</h2>
+        <AuthLayout subtitle="Log In" role="admin">
+            <h2 className="text-3xl font-bold mb-4 text-gray-900 drop-shadow-md">Welcome back, Admin</h2>
             <form className="w-full space-y-6" onSubmit={handleSubmit}>
                 {/* Email */}
                 <div className="relative">
@@ -83,7 +83,7 @@ export default function UserLogin() {
                 {/* Forgot Password Link */}
                 <div className="text-right mb-2">
                     <Link
-                        to="/user/forgot-password"
+                        to="/admin/forgot-password"
                         className="text-gray-400 hover:text-gray-700 hover:underline text-sm font-medium"
                     >
                         Forgot Password?

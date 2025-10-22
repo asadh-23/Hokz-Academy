@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import axiosInstance from "../../../api/axios";
+import { publicAxios } from "../../api/axios";
 
 export default function ResetPassword() {
     const [formData, setFormData] = useState({
@@ -9,28 +9,29 @@ export default function ResetPassword() {
         confirmPassword: "",
     });
     const navigate = useNavigate();
-    const {token} = useParams()
+    const {token} = useParams();
+    const location = useLocation();
+    const role = location.pathname.includes("user") ? "user" : "tutor";
 
     const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (formData.password.length < 5) {
+        if (formData.password.trim().length < 5) {
             return toast.error("Password must be at least 5 characters.");
         }
-        if (formData.password !== formData.confirmPassword) {
+        if (formData.password.trim() !== formData.confirmPassword.trim()) {
             return toast.error("Passwords do not match.");
         }
         try{
-            const response = await axiosInstance.post(`/user/reset-password/${token}`, {password : formData.password});
+            const response = await publicAxios.post(`/${role}/reset-password/${token}`, {password : formData.password.trim()});
             if(response.data?.success){
-                console.log("Reset password successful");
                 toast.success(response.data?.message);
-                navigate("/user/login");
+                navigate(`/${role}/login`);
             }
         }catch(error){
             console.log("Reset password error", error.response?.data?.message);
-            toast.error(error.response?.data?.message,"Reset password failed");
+            toast.error(error.response?.data?.message || "Reset password failed");
         }
     };
 
@@ -101,7 +102,7 @@ export default function ResetPassword() {
                     If you remember your password,{" "}
                     <span
                         className="text-teal-500 cursor-pointer font-semibold hover:underline"
-                        onClick={() => navigate("/user/login")}
+                        onClick={() => navigate(`/${role}/login`)}
                     >
                         Login here
                     </span>

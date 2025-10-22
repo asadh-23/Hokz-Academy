@@ -1,10 +1,10 @@
 import AuthLayout from "../../../components/auth/AuthLayout";
 import { toast } from "sonner";
-import {publicAxios} from "../../../api/axios";
+import { publicAxios } from "../../../api/axios";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-export default function UserRegister() {
+export default function TutorRegister() {
     const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
@@ -43,12 +43,11 @@ export default function UserRegister() {
         }
 
         try {
-            const response = await publicAxios.post("/user/register",cleanData );
+            const response = await publicAxios.post("/tutor/register", cleanData);
 
             if (response.data.success) {
-                toast.success(response.data?.message);
-                localStorage.setItem("otpData", JSON.stringify({ email: cleanData.email, role: "user" }));
-                navigate("/user/verify-otp", { state: { email: cleanData.email, role: "user"} });
+                toast.success(response.data.message);
+                navigate("/tutor/verify-otp", { state: {email: cleanData.email, role: "tutor" } });
             }
         } catch (error) {
             toast.error(error.response?.data?.message || "Registration failed");
@@ -60,8 +59,8 @@ export default function UserRegister() {
     };
 
     return (
-        <AuthLayout subtitle="Sign Up" role="user">
-            <h2 className="text-3xl font-bold mb-4 text-gray-900 drop-shadow-md">Create your account</h2>
+        <AuthLayout subtitle="Sign Up" role="tutor">
+            <h2 className="text-3xl font-bold mb-4 text-gray-900 drop-shadow-md">Register as a Tutor</h2>
             <form className="w-full space-y-6" onSubmit={handleSubmit}>
                 {/* Username */}
                 <div className="relative">
@@ -142,7 +141,6 @@ export default function UserRegister() {
                     Register
                 </button>
             </form>
-
         </AuthLayout>
     );
 }

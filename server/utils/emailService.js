@@ -39,12 +39,12 @@ export const sendOtpEmail = async (to, otp) => {
   }
 };
 
-export const sendPasswordResetEmail = async (to, resetToken, userType) => {
+export const sendPasswordResetEmail = async (to, passwordResetToken, role) => {
 
   try{
 
-    const frontEndUrl = process.env.FRONTEND_URL;
-    const resetUrl = `${frontEndUrl}/${userType}/reset-password/${resetToken}`;
+    const frontendUrl = process.env.FRONTEND_URL;
+    const resetUrl = `${frontendUrl}/${role}/reset-password/${passwordResetToken}`;
   
     const mailOptions = {
         from: `${process.env.APP_NAME} <${process.env.EMAIL_USER}>`,

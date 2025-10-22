@@ -1,12 +1,18 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { publicAxios } from "../../api/axios";
 import { toast } from "sonner";
-import axiosInstance from "../../api/axios";
 
 const RESEND_INTERVAL = 300; // 5 mins
 
 export default function OtpVerify() {
   const location = useLocation();
+  const otpData = JSON.parse(localStorage.getItem("otpData"));
+  const email = location.state?.email || otpData?.email;
+  const role  = location.state?.role  || otpData?.role;
+
+
+
   const navigate = useNavigate();
 
   const [otp, setOtp] = useState(Array(6).fill(""));
@@ -80,15 +86,17 @@ export default function OtpVerify() {
     if (otpCode.length !== 6) {
       return toast.error("Please enter a 6-digit OTP");
     }
+
     try {
-      const res = await axiosInstance.post("/user/verify-otp", {
-        email: location.state?.email,
-        otp: otpCode,
+      const response = await publicAxios.post(`/${role}/verify-otp`, {
+        email,
+        otpCode,
       });
-      if (res.data?.success) {
-        toast.success(res.data?.message);
+      if (response.data?.success) {
+        toast.success(response.data?.message);
         localStorage.removeItem("otpTimestamp");
-        navigate("/");
+         localStorage.removeItem("otpData");
+        navigate(`/`);
       }
     } catch (error) {
       toast.error(error.response?.data?.message || "OTP verification failed");
@@ -102,8 +110,8 @@ export default function OtpVerify() {
       setOtp(Array(6).fill(""));
       localStorage.setItem("otpTimestamp", Date.now().toString());
 
-      const response = await axiosInstance.post("/user/resend-otp", {
-        email: location.state?.email,
+      const response = await publicAxios.post(`/${role}/resend-otp`, {
+        email,
       });
 
       if (response.data?.success) {
@@ -119,7 +127,9 @@ export default function OtpVerify() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#eddfc3]">
       <div className="bg-white rounded-3xl px-8 py-10 shadow-2xl max-w-md w-full flex flex-col items-center text-center relative">
-        <button className="absolute right-8 top-7 text-xl text-gray-400 hover:text-gray-700">
+        <button
+            className="absolute right-8 top-7 text-xl text-gray-400 hover:text-gray-700"
+            onClick={()=>{navigate(`/${role}/register`)}}>
           &times;
         </button>
         {/* Better Email Icon */}
@@ -157,7 +167,7 @@ export default function OtpVerify() {
         <div className="mb-6 text-sm">
           Want to Change Your Email Address?
           <Link
-            to="/user/register"
+            to={`/${role}/register`}
             className="underline font-semibold ml-1 text-gray-800 hover:text-orange-500"
           >
             Change Here

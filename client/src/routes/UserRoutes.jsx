@@ -1,9 +1,9 @@
 import { Routes, Route } from 'react-router-dom'
 import UserRegister from '../pages/user/auth/UserRegister'
 import UserLogin from '../pages/user/auth/UserLogin'
-import OtpVerify from '../components/auth/OtpVerify'
-import ForgotPassword from '../pages/user/auth/ForgotPassword'
-import ResetPassword from '../pages/user/auth/resetPassword'
+import OtpVerify from '../pages/common/OtpVerify'
+import ForgotPassword from '../pages/common/ForgotPassword'
+import ResetPassword from '../pages/common/ResetPassword'
 
 export default function UserRoutes() {
   return (

@@ -1,10 +1,10 @@
 import { generateRefreshToken, generateAccessToken } from "../config/jwt.js";
-import User from "../models/userModal.js";
+import User from "../models/userModel.js";
 import { sendOtpEmail, sendPasswordResetEmail } from "../utils/emailService.js";
-import hashPassword from "../utils/hashPassword.js";
 import { v4 as uuidv4 } from "uuid";
-import bcrypt from "bcryptjs";
 import crypto from "crypto"
+import OTP from "../models/OtpModel.js";
+import { setAuthTokens } from "../helpers/tokenHelpers.js";
 
 export const registerUser = async (req, res) => {
     try {
@@ -19,7 +19,7 @@ export const registerUser = async (req, res) => {
         }
 
         if (!/^(\+91)?\d{10}$/.test(phoneNo)) {
-            return res.status(400).json({ message: "Invalid Indian phone number" });
+            return res.status(400).json({ message: "Invalid phone number" });
         }
 
         if (password.length < 5) {
@@ -27,90 +27,75 @@ export const registerUser = async (req, res) => {
         }
 
         // Check duplicates in DB
-        const userExists = await User.findOne({ email });
-        if (userExists && userExists.is_verified) return res.status(400).json({ message: "User already registered" });
+        const user = await User.findOne({ email });
+        if (user && user.isVerified) return res.status(400).json({ message: "User already registered" });
 
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
+        await OTP.deleteMany({ email, role: "User" });
 
-        if (userExists && !userExists.is_verified) {
-            userExists.otp = otp;
-            userExists.otpExpiry = otpExpiry;
-            await userExists.save();
-        } else {
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-            const newUser = new User({
-                full_name: name,
+        await OTP.create({
+            email,
+            otpCode,
+            role: "User",
+        });
+
+        
+        if(!user){
+            await User.create({
+                fullName : name,
                 phoneNo,
                 email,
                 password,
-                user_id: uuidv4(),
-                otp,
-                otpExpiry,
+                userId : uuidv4(),
             });
-            await newUser.save();
         }
 
-        try {
-            await sendOtpEmail(email, otp);
-        } catch (error) {
-            console.error("❌ OTP email failed:", error);
-            return res.status(500).json({ message: "Failed to send OTP email" });
-        }
+        await sendOtpEmail(email, otpCode);
 
         return res.status(200).json({
             success: true,
             message: "OTP sent successfully to your email. Please verify to complete registration.",
-            email,
         });
+
     } catch (error) {
-        console.error("❌ Registration error:", error);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("❌User Registration error:", error);
+        res.status(500).json({ message: "Registration failed" });
     }
 };
 
 export const verifyOtp = async (req, res) => {
     try {
-        const { email, otp } = req.body;
+        const { email, otpCode} = req.body;
+        
+        const otpDoc = await OTP.findOne({email, otpCode, role: "User"});
+        if(!otpDoc) return res.status(400).json({message: "Invalid or expired OTP"});
+            
         const user = await User.findOne({ email });
-
         if (!user) return res.status(400).json({ message: "User not found" });
-        if (user.is_verified) return res.status(400).json({ message: "User already verified" });
-        if (user.otpExpiry < new Date()) return res.status(400).json({ message: "OTP expired" });
-        if (user.otp !== otp) return res.status(400).json({ message: "Invalid OTP" });
 
-        user.is_verified = true;
-        user.otp = null;
-        user.otpExpiry = null;
+        const accessToken = setAuthTokens(res, user);
 
-        const refreshToken = generateRefreshToken(user._id);
-        const accessToken = generateAccessToken(user._id);
-
-        user.refreshToken = refreshToken;
+        user.isVerified = true;
         const savedUser = await user.save();
 
-        res.cookie("refreshToken", refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "Strict",
-            path: "/",
-            maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
+        await OTP.deleteOne({_id: otpDoc._id});
 
         return res.status(200).json({
             success: true,
             message: "Email verified successfully",
             accessToken,
             user: {
-                name: savedUser.full_name,
+                name: savedUser.fullName,
                 email: savedUser.email,
-                user_id: savedUser.user_id,
+                userId: savedUser.userId,
                 profileImage: savedUser.profileImage,
             },
         });
+
     } catch (error) {
         console.error("❌ OTP verification error:", error);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({ message: "OTP verification error" });
     }
 };
 
@@ -119,16 +104,20 @@ export const resendOtp = async (req, res) => {
         const { email } = req.body;
 
         const user = await User.findOne({ email });
-        if (!user) return res.status(400).json({ message: "Cannot resend OTP" });
+        if (!user) return res.status(400).json({ message: "Cannot resend OTP to this email" });
 
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
+        await OTP.deleteMany({email, role:"User"});
 
-        user.otp = otp;
-        user.otpExpiry = otpExpiry;
-        await user.save();
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        await OTP.create({
+            email,
+            otpCode,
+            role: "User",
+            createdAt: new Date(),
+        });
 
-        await sendOtpEmail(email, otp);
+        await sendOtpEmail(email, otpCode);
 
         res.status(200).json({
             success: true,
@@ -155,58 +144,47 @@ export const loginUser = async (req, res) => {
             return res.status(400).json({ message: "Invalid email or password" });
         }
 
-        if (!user.is_verified) {
+        if (!user.isVerified) {
             return res.status(400).json({ message: "Please verify your email first" });
         }
 
-        if(user.is_block){
+        if(user.isBlocked){
             return res.status(403).json({message : "Your account has been blocked by the administrator. Please contact support."})
         }
 
-        const isPasswordValid = await user.matchPassword(password);
+        const isPasswordValid = await user.matchUserPassword(password);
         if(!isPasswordValid){
             return res.status(400).json({message : "Invalid email or password"});
         }
         
 
-        const accessToken = generateAccessToken(user._id);
-        const refreshToken = generateRefreshToken(user._id);
-
-        user.refreshToken = refreshToken;
+        const accessToken = setAuthTokens(res, user);
+        user.lastLogin = new Date();
         const savedUser = await user.save();
-
-        res.cookie("refreshToken", refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "Strict",
-            path: "/",
-            maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
 
         res.status(200).json({
             success: true,
             message: "Login successful",
             accessToken,
             user: {
-                name: savedUser.full_name,
+                name: savedUser.fullName,
                 email: savedUser.email,
-                user_id: savedUser.user_id,
+                userId: savedUser.userId,
                 profileImage: savedUser.profileImage,
             },
         });
     } catch (error) {
-        console.error("❌ Login error:", error);
-        res.status(500).json({ message: "Internal server error" });
+        console.error("❌ User login error:", error);
+        res.status(500).json({ message: "Login failed" });
     }
 };
 
 export const googleAuth = async (req, res) => {
     try{
 
-        const { email, name, googleId, profilePic } = req.body;
+        const {name, email, googleId, profileImage } = req.body;
         if (!email || !googleId) {
             return res.status(400).json({
-                success: false,
                 message: "Invalid Google data",
             });
         }
@@ -214,106 +192,97 @@ export const googleAuth = async (req, res) => {
         
             let user = (await User.findOne({ googleId })) || (await User.findOne({ email }));
 
-            if(user.is_block){
+            if(user && user.isBlocked){
                 return res.status(403).json({message : "Your account has been blocked by the administrator. Please contact support."})
             }
     
             if (!user) {
                 user = await User.create({
-                    full_name: name,
+                    fullName: name,
                     email,
                     googleId,
-                    profileImage: profilePic,
-                    is_verified: true,
-                    user_id: uuidv4(),
+                    profileImage,
+                    isVerified: true,
+                    userId: uuidv4(),
                 });
             } else {
                 if (!user.googleId) {
                     user.googleId = googleId;
-                    user.profileImage = profilePic;
-                    user.is_verified = true;
+                    user.profileImage = profileImage;
+                    user.isVerified = true;
                 }
             }
     
-            const accessToken = generateAccessToken(user._id);
-            const refreshToken = generateRefreshToken(user._id);
-    
-            user.refreshToken = refreshToken;
-            await user.save();
-    
-            res.cookie("refreshToken", refreshToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "Strict",
-                path: "/",
-                maxAge: 7 * 24 * 60 * 60 * 1000,
-            });
+
+            const accessToken = setAuthTokens(res, user);
+
+            const savedUser = await user.save();
     
             return res.status(200).json({
                 success: true,
                 message: "Google login successful",
                 accessToken,
                 user: {
-                    name: user.full_name,
-                    email: user.email,
-                    user_id: user.user_id,
-                    profileImage: user.profileImage,
+                    name: savedUser.fullName,
+                    email: savedUser.email,
+                    userId: savedUser.userId,
+                    profileImage: savedUser.profileImage,
                 },
             });
+
     }catch (error) {
         console.log("Google auth error : ", error);
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-        });
+        return res.status(500).json({message: "Google login failed",});
     }
 };
-
 
 export const forgotPassword = async (req,res) => {
     try{
 
         const {email} = req.body;
         if(!email){
-            return res.status(400).json({message : "Please provide an email address"});
+            return res.status(400).json({message : "Please provide a valid email address"});
         }
     
-        
-            const user = await User.findOne({email});
+        const user = await User.findOne({email});
         if(!user){
-            return res.status(400).json({message : "User not found"});
+            return res.status(400).json({message : "User with this email not found"});
+        }
+
+        if(user.isBlocked){
+            return res.status(403).json({message : "Your account has been blocked by the administrator. Please contact support."})
         }
     
-        const resetToken = crypto.randomBytes(32).toString("hex");
-        const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+        const passwordResetToken = crypto.randomBytes(32).toString("hex");
+        const hashedPasswordResetToken = crypto.createHash("sha256").update(passwordResetToken).digest("hex");
     
-        user.passwordResetToken = hashedToken;
+        user.passwordResetToken = hashedPasswordResetToken;
         user.passwordResetExpiry = Date.now() + 10 * 60 * 1000 // 10 minutes
         await user.save();
     
-        await sendPasswordResetEmail(user.email, resetToken, "user");
+        await sendPasswordResetEmail(user.email, passwordResetToken, "user");
     
         return res.status(200).json({
             success : true,
-            message : "Check your email for reset link"
+            message : "Check your email for the password reset link"
         });
+
     }catch(error){
         console.log("forgot password error", error);
-        
-        return res.status(500).json({message : "Error sending the email"});
-    }
-    
+        return res.status(500).json({message : "Something went wrong while sending the reset email. Please try again later."});
+    } 
 }
+
 
 export const resetPassword = async (req,res) => {
     try{
         const {password} = req.body;
-        const resetToken = req.params.token;
+        const passwordResetToken = req.params.token;
 
-        const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+        const hashedPasswordResetToken = crypto.createHash("sha256").update(passwordResetToken).digest("hex");
 
         const user = await User.findOne({
-            passwordResetToken : hashedToken,
+            passwordResetToken : hashedPasswordResetToken,
             passwordResetExpiry : { $gt: Date.now() }
         });
 
@@ -328,10 +297,10 @@ export const resetPassword = async (req,res) => {
         return res.status(200).json({
             success : true,
             message : "Password reset successful",
-        })
+        });
 
     }catch(error){
         console.log("Reset password error ", error);
-        return res.status(500).json({message : "Internal server error"});
+        return res.status(500).json({message : "Failed to send password rest email"});
     }
 }

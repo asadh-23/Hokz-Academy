@@ -1,23 +1,25 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import axiosInstance from "../../../api/axios";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { publicAxios } from "../../api/axios";
 
 export default function ForgotPassword() {
     const [email, setEmail] = useState("");
     const navigate = useNavigate();
+    const location = useLocation();
+    const role = location.pathname.includes("user") ? "user" : "tutor"
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!email.trim()) {
-            return toast.error("Please enter correct email");
+            return toast.error("Please enter valid email");
         }
 
-        try {
-            const response = await axiosInstance.post("/user/forgot-password", { email });
-            if (response.data.success) {
+        try {  
+            const response = await publicAxios.post(`/${role}/forgot-password`, { email });
+            if (response.data?.success) {
                 toast.success(response.data?.message || "Check your email for reset link");
-                navigate("/user/login");
+                navigate(`/${role}/login`);
             }
         } catch (error) {
             toast.error(error.response?.data?.message || "Something went wrong");
@@ -61,7 +63,7 @@ export default function ForgotPassword() {
                         Remembered your password?{" "}
                         <span
                             className="text-teal-500 cursor-pointer font-semibold hover:underline"
-                            onClick={() => navigate("/user/login")}
+                            onClick={() => navigate(`/${role}/login`)}
                         >
                             Login here
                         </span>

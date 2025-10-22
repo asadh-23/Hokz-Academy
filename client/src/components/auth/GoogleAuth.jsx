@@ -1,12 +1,12 @@
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { jwtDecode } from "jwt-decode";
 import { toast } from "sonner";
-import axiosInstance from "../../api/axios";
+import {publicAxios} from "../../api/axios";
 import { useNavigate } from "react-router-dom";
 
 const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-export default function GoogleAuth() {
+export default function GoogleAuth({role}) {
     const navigate = useNavigate();
 
     const handleSuccess = async (credentialResponse) => {
@@ -16,18 +16,18 @@ export default function GoogleAuth() {
             console.log(decoded); // contains name, email, picture, etc.
     
             
-                const response = await axiosInstance.post("/user/google-auth", {
-                    email: decoded.email,
+                const response = await publicAxios.post(`/${role}/google-auth`, {
                     name: decoded.name,
+                    email: decoded.email,
                     googleId: decoded.sub,
-                    profilePic: decoded.picture,
+                    profileImage: decoded.picture,
                 });
     
                 if (response.data?.success) {
                     toast.success(response.data?.message);
                     navigate("/");
                 }
-                console.log(response.data);
+              
         }catch(error){
             toast.error(error.response?.data?.message) || "Google login failed";
             console.log(error.response?.data?.message);

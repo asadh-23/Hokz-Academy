@@ -1,10 +1,9 @@
 import dotenv from "dotenv";
+dotenv.config();
 import express from "express";
 import cors from "cors";
 import cookieParser from 'cookie-parser';
 import connectDB from "./config/database.js";
-
-dotenv.config();
 
 const app = express();
 
@@ -20,16 +19,16 @@ app.use(cors({
 }));
 
 // USER ROUTER
-import user_router from "./routes/userRoutes.js";
-app.use("/user",user_router);
+import userRouter from "./routes/userRoutes.js";
+app.use("/api/user",userRouter);
 
 //TUTOR ROUTER
-import tutor_router from "./routes/tutorRoutes.js";
-app.use("/tutor",tutor_router);
+import tutorRouter from "./routes/tutorRoutes.js";
+app.use("/api/tutor",tutorRouter);
 
 //ADMIN ROUTER
-import admin_router from "./routes/adminRoutes.js";
-app.use("/admin",admin_router)
+import adminRouter from "./routes/adminRoutes.js";
+app.use("/api/admin",adminRouter);
 
 
 const PORT = process.env.PORT || 3000;
